@@ -1,4 +1,4 @@
-package log
+package main
 
 // convenience code
 // mostly taken from https://gist.github.com/panta/2530672ca641d953ae452ecb5ef79d7d
