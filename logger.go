@@ -10,14 +10,14 @@ type Logger struct {
 	context map[string]any
 }
 
-func (l *Logger) chainLog(e *zerolog.Event, message string, tags ...any) {
+func (l *Logger) logWith(e *zerolog.Event, message string, tags ...any) {
 
 	for key, value := range l.context {
 		e = e.Str(key, fmt.Sprintf("%v", value))
 	}
 
 	if len(tags)%2 == 1 {
-		l.chainLog(l.Error(), "odd logger tag count", "tags", tags)
+		l.logWith(l.Error(), "odd logger tag count", "tags", tags)
 		return
 	}
 
@@ -34,7 +34,7 @@ func (l *Logger) chainLog(e *zerolog.Event, message string, tags ...any) {
 	e.Msg(message)
 }
 
-func (l *Logger) C(tags ...any) *Logger {
+func (l *Logger) With(tags ...any) *Logger {
 
 	logger := &Logger{
 		Logger:  l.Logger,
@@ -50,7 +50,7 @@ func (l *Logger) C(tags ...any) *Logger {
 	}
 
 	if len(tags)%2 == 1 {
-		l.chainLog(l.Error(), "odd logger tag count", "tags", tags)
+		l.logWith(l.Error(), "odd logger tag count", "tags", tags)
 	}
 
 	for i := 0; i < len(tags); i += 2 {
@@ -64,42 +64,26 @@ func (l *Logger) C(tags ...any) *Logger {
 	return logger
 }
 
-func (l *Logger) With(tags ...any) {
-
-	if len(tags)%2 == 1 {
-		tags = append(tags, "<MISSINGARG>")
-		l.chainLog(l.Error(), "odd logger tag count", "tags", tags)
-	}
-
-	for i := 0; i < len(tags); i += 2 {
-		tag, ok := tags[i].(string)
-		if !ok {
-			panic(fmt.Sprintf("logging tag is not a string. tag: %v", tag))
-		}
-		l.context[tag] = tags[i+1]
-	}
-}
-
 func (l *Logger) D(message string, tags ...any) {
-	l.chainLog(l.Debug(), message, tags...)
+	l.logWith(l.Debug(), message, tags...)
 }
 
 func (l *Logger) F(message string, tags ...any) {
-	l.chainLog(l.Fatal(), message, tags...)
+	l.logWith(l.Fatal(), message, tags...)
 }
 
 func (l *Logger) E(message string, tags ...any) {
-	l.chainLog(l.Error(), message, tags...)
+	l.logWith(l.Error(), message, tags...)
 }
 
 func (l *Logger) W(message string, tags ...any) {
-	l.chainLog(l.Warn(), message, tags...)
+	l.logWith(l.Warn(), message, tags...)
 }
 
 func (l *Logger) L(message string, tags ...any) {
-	l.chainLog(l.Log(), message, tags...)
+	l.logWith(l.Log(), message, tags...)
 }
 
 func (l *Logger) I(message string, tags ...any) {
-	l.chainLog(l.Info(), message, tags...)
+	l.logWith(l.Info(), message, tags...)
 }
