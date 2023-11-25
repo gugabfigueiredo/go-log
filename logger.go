@@ -1,8 +1,14 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/rs/zerolog"
+)
+
+var (
+	ErrTagsOddCount     = errors.New("odd logger tag count")
+	ErrTagsKeyNotString = errors.New("tag key is not a string")
 )
 
 type Logger struct {
@@ -10,57 +16,51 @@ type Logger struct {
 	context map[string]any
 }
 
-func (l *Logger) logWith(e *zerolog.Event, message string, tags ...any) {
+func (l *Logger) with(tags ...any) (*Logger, error) {
 
-	for key, value := range l.context {
-		e = e.Str(key, fmt.Sprintf("%v", value))
+	if len(tags) == 0 {
+		return l, nil
 	}
 
 	if len(tags)%2 == 1 {
-		l.logWith(l.Error(), "odd logger tag count", "tags", tags)
-		return
+		return l, ErrTagsOddCount
 	}
 
-	if tags != nil {
-		for i := 0; i < len(tags); i += 2 {
-			tag, ok := tags[i].(string)
-			if !ok {
-				panic(fmt.Sprintf("logging tag is not a string. tag: %v", tag))
-			}
-			e = e.Str(tag, fmt.Sprintf("%v", tags[i+1]))
+	logger := &Logger{
+		Logger:  l.Logger,
+		context: l.context,
+	}
+
+	for i := 0; i < len(tags); i += 2 {
+		tag, ok := tags[i].(string)
+		if !ok {
+			return l, ErrTagsKeyNotString
 		}
+		logger.context[tag] = tags[i+1]
+	}
+
+	return logger, nil
+}
+
+func (l *Logger) logWith(e *zerolog.Event, message string, tags ...any) {
+
+	logger, err := l.with(tags...)
+	if err != nil {
+		l.logWith(l.Error(), "unable to add tags to log line", "error", err, "tags", tags, "originalMessage", message)
+	}
+
+	for key, value := range logger.context {
+		e = e.Str(key, fmt.Sprintf("%v", value))
 	}
 
 	e.Msg(message)
 }
 
 func (l *Logger) With(tags ...any) *Logger {
-
-	logger := &Logger{
-		Logger:  l.Logger,
-		context: make(map[string]any),
+	logger, err := l.with(tags...)
+	if err != nil {
+		l.logWith(l.Error(), "unable to add tags to log line", "error", err, "tags", tags)
 	}
-
-	for tag := range l.context {
-		logger.context[tag] = l.context[tag]
-	}
-
-	if len(tags) == 0 {
-		return logger
-	}
-
-	if len(tags)%2 == 1 {
-		l.logWith(l.Error(), "odd logger tag count", "tags", tags)
-	}
-
-	for i := 0; i < len(tags); i += 2 {
-		tag, ok := tags[i].(string)
-		if !ok {
-			panic(fmt.Sprintf("logging tag is not a string. tag: %v", tag))
-		}
-		logger.context[tag] = tags[i+1]
-	}
-
 	return logger
 }
 
