@@ -1,4 +1,4 @@
-module github.com/gugabfigueiredo/tiny-go-log
+module github.com/gugabfigueiredo/log
 
 go 1.20
 
