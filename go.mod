@@ -1,4 +1,4 @@
-module github.com/gugabfigueiredo/log
+module github.com/gugabfigueiredo/go-log
 
 go 1.20
 
