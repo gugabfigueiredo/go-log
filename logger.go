@@ -24,7 +24,7 @@ type ILogger interface {
 }
 
 type Logger struct {
-	*zerolog.Logger
+	zerolog.Logger
 	context map[string]any
 }
 
@@ -44,29 +44,30 @@ func New(config *Config) *Logger {
 	}
 	mw := io.MultiWriter(writers...)
 
-	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	logger := zerolog.New(mw).With().Timestamp().CallerWithSkipFrameCount(3).Logger()
-
-	msg := logger.Info().
-		Str("context", config.Context).
-		Bool("consoleLogging", config.ConsoleLoggingEnabled).
-		Bool("fileLogging", config.FileLoggingEnabled).
-		Bool("jsonLogging", config.EncodeLogsAsJson)
-
-	if config.FileLoggingEnabled {
-		msg = msg.Str("logDirectory", config.Directory).
-			Str("fileName", config.Filename).
-			Int("maxSizeMB", config.MaxSize).
-			Int("maxBackups", config.MaxBackups).
-			Int("maxAgeInDays", config.MaxAge)
-	}
-
-	msg.Msg("logging configured")
-
-	return &Logger{
-		Logger:  &logger,
+	logger := &Logger{
+		Logger:  zerolog.New(mw).Level(config.Level).With().Timestamp().CallerWithSkipFrameCount(3).Logger(),
 		context: map[string]any{"context": config.Context},
 	}
+
+	initLog := logger.With(
+		"consoleLogging", config.ConsoleLoggingEnabled,
+		"fileLogging", config.FileLoggingEnabled,
+		"jsonLogging", config.EncodeLogsAsJson,
+	)
+
+	if config.FileLoggingEnabled {
+		initLog = initLog.With(
+			"logDirectory", config.Directory,
+			"fileNamePattern", config.Filename,
+			"maxSize", config.MaxSize,
+			"maxBackups", config.MaxBackups,
+			"maxAge", config.MaxAge,
+		)
+	}
+
+	initLog.Info("logging initialized")
+
+	return logger
 }
 
 func (l *Logger) with(tags ...any) (*Logger, error) {
