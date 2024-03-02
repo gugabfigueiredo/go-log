@@ -45,7 +45,7 @@ func New(config *Config) *Logger {
 	mw := io.MultiWriter(writers...)
 
 	logger := &Logger{
-		Logger:  zerolog.New(mw).Level(config.Level).With().Timestamp().CallerWithSkipFrameCount(3).Logger(),
+		Logger:  zerolog.New(mw).Level(config.Level).With().Timestamp().CallerWithSkipFrameCount(4).Logger(),
 		context: map[string]any{"context": config.Context},
 	}
 
@@ -80,9 +80,9 @@ func (l *Logger) with(tags ...any) (*Logger, error) {
 		return l, ErrTagsOddCount
 	}
 
-	logger := &Logger{
-		Logger:  l.Logger,
-		context: l.context,
+	var context = make(map[string]any)
+	for key, value := range l.context {
+		context[key] = value
 	}
 
 	for i := 0; i < len(tags); i += 2 {
@@ -90,10 +90,13 @@ func (l *Logger) with(tags ...any) (*Logger, error) {
 		if !ok {
 			return l, ErrTagsKeyNotString
 		}
-		logger.context[tag] = tags[i+1]
+		context[tag] = tags[i+1]
 	}
 
-	return logger, nil
+	return &Logger{
+		Logger:  l.Logger,
+		context: context,
+	}, nil
 }
 
 func (l *Logger) logWith(e *zerolog.Event, message string, tags ...any) {
