@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rs/zerolog"
+	"io"
+	"os"
 )
 
 var (
@@ -24,6 +26,47 @@ type ILogger interface {
 type Logger struct {
 	*zerolog.Logger
 	context map[string]any
+}
+
+// New sets up the logging framework
+func New(config *Config) *Logger {
+	if config == nil {
+		config = &Config{}
+	}
+
+	var writers []io.Writer
+
+	if config.ConsoleLoggingEnabled {
+		writers = append(writers, os.Stderr)
+	}
+	if config.FileLoggingEnabled {
+		writers = append(writers, newFileWriter(config))
+	}
+	mw := io.MultiWriter(writers...)
+
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	logger := zerolog.New(mw).With().Timestamp().CallerWithSkipFrameCount(3).Logger()
+
+	msg := logger.Info().
+		Str("context", config.Context).
+		Bool("consoleLogging", config.ConsoleLoggingEnabled).
+		Bool("fileLogging", config.FileLoggingEnabled).
+		Bool("jsonLogging", config.EncodeLogsAsJson)
+
+	if config.FileLoggingEnabled {
+		msg = msg.Str("logDirectory", config.Directory).
+			Str("fileName", config.Filename).
+			Int("maxSizeMB", config.MaxSize).
+			Int("maxBackups", config.MaxBackups).
+			Int("maxAgeInDays", config.MaxAge)
+	}
+
+	msg.Msg("logging configured")
+
+	return &Logger{
+		Logger:  &logger,
+		context: map[string]any{"context": config.Context},
+	}
 }
 
 func (l *Logger) with(tags ...any) (*Logger, error) {
