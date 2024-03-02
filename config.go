@@ -1,20 +1,13 @@
 package log
 
-// convenience code
-// mostly taken from https://gist.github.com/panta/2530672ca641d953ae452ecb5ef79d7d
+import "github.com/rs/zerolog"
 
-import (
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"gopkg.in/natefinch/lumberjack.v2"
-	"io"
-	"os"
-	"path"
-)
-
-// Config - Configuration for logging
+// Config is the configuration for the logger, supported by envconfig: https://github.com/kelseyhightower/envconfig
 type Config struct {
-	Context string `default:"my-app"`
+	// Level is the log level to use
+	Level zerolog.Level `default:"1"`
+	// Context is the application name
+	Context string `required:"true"`
 	// Enable console logging
 	ConsoleLoggingEnabled bool `default:"true"`
 	// EncodeLogsAsJson makes the log framework log JSON
@@ -22,7 +15,7 @@ type Config struct {
 	// FileLoggingEnabled makes the framework log to a file
 	// the fields below can be skipped if this value is false!
 	FileLoggingEnabled bool `default:"false"`
-	// Directory to log to when filelogging is enabled
+	// Directory to log to when file logging is enabled
 	Directory string `default:"/var/log"`
 	// Filename is the name of the logfile which will be placed inside the directory
 	Filename string `default:"my-app"`
@@ -32,61 +25,4 @@ type Config struct {
 	MaxBackups int `default:"10"`
 	// MaxAge the max age in days to keep a logfile
 	MaxAge int `default:"2"`
-}
-
-// New sets up the logging framework
-//
-// In production, the container logs will be collected and file logging should be disabled. However,
-// during development it's nicer to see logs as text and optionally write to a file when debugging
-// problems in the containerized pipeline
-//
-// The output log file will be located at /var/log/service-xyz/service-xyz.log and
-// will be rolled according to configuration set.
-func New(config *Config) *Logger {
-	var writers []io.Writer
-
-	if config.ConsoleLoggingEnabled {
-		writers = append(writers, os.Stderr)
-	}
-	if config.FileLoggingEnabled {
-		writers = append(writers, newRollingFile(config))
-	}
-	mw := io.MultiWriter(writers...)
-
-	// zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	logger := zerolog.New(mw).With().Timestamp().Logger()
-
-	msg := logger.Info().
-		Str("context", config.Context).
-		Bool("fileLogging", config.FileLoggingEnabled).
-		Bool("jsonLogging", config.EncodeLogsAsJson)
-
-	if config.FileLoggingEnabled {
-		msg = msg.Str("logDirectory", config.Directory).
-			Str("fileName", config.Filename).
-			Int("maxSizeMB", config.MaxSize).
-			Int("maxBackups", config.MaxBackups).
-			Int("maxAgeInDays", config.MaxAge)
-	}
-
-	msg.Msg("logging configured")
-
-	return &Logger{
-		Logger:  &logger,
-		context: map[string]any{"context": config.Context},
-	}
-}
-
-func newRollingFile(config *Config) io.Writer {
-	if err := os.MkdirAll(config.Directory, 0744); err != nil {
-		log.Error().Err(err).Str("path", config.Directory).Msg("can't create log directory")
-		return nil
-	}
-
-	return &lumberjack.Logger{
-		Filename:   path.Join(config.Directory, config.Context, config.Filename),
-		MaxBackups: config.MaxBackups, // files
-		MaxSize:    config.MaxSize,    // megabytes
-		MaxAge:     config.MaxAge,     // days
-	}
 }
