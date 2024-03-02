@@ -1,4 +1,4 @@
-package main
+package log
 
 import (
 	"errors"
@@ -10,6 +10,16 @@ var (
 	ErrTagsOddCount     = errors.New("odd logger tag count")
 	ErrTagsKeyNotString = errors.New("tag key is not a string")
 )
+
+type ILogger interface {
+	With(tags ...any) ILogger
+	Debug(message string, tags ...any)
+	Fatal(message string, tags ...any)
+	Error(message string, tags ...any)
+	Warn(message string, tags ...any)
+	Info(message string, tags ...any)
+	Log(message string, tags ...any)
+}
 
 type Logger struct {
 	*zerolog.Logger
@@ -46,7 +56,7 @@ func (l *Logger) logWith(e *zerolog.Event, message string, tags ...any) {
 
 	logger, err := l.with(tags...)
 	if err != nil {
-		l.logWith(l.Error(), "unable to add tags to log line", "error", err, "tags", tags, "originalMessage", message)
+		l.Error("unable to add tags to log line", "error", err, "tags", tags, "originalMessage", message)
 	}
 
 	for key, value := range logger.context {
@@ -56,34 +66,34 @@ func (l *Logger) logWith(e *zerolog.Event, message string, tags ...any) {
 	e.Msg(message)
 }
 
-func (l *Logger) With(tags ...any) *Logger {
+func (l *Logger) With(tags ...any) ILogger {
 	logger, err := l.with(tags...)
 	if err != nil {
-		l.logWith(l.Error(), "unable to add tags to log line", "error", err, "tags", tags)
+		l.Error("unable to add tags to log line", "error", err, "tags", tags)
 	}
 	return logger
 }
 
-func (l *Logger) D(message string, tags ...any) {
-	l.logWith(l.Debug(), message, tags...)
+func (l *Logger) Debug(message string, tags ...any) {
+	l.logWith(l.Logger.Debug(), message, tags...)
 }
 
-func (l *Logger) F(message string, tags ...any) {
-	l.logWith(l.Fatal(), message, tags...)
+func (l *Logger) Fatal(message string, tags ...any) {
+	l.logWith(l.Logger.Fatal(), message, tags...)
 }
 
-func (l *Logger) E(message string, tags ...any) {
-	l.logWith(l.Error(), message, tags...)
+func (l *Logger) Error(message string, tags ...any) {
+	l.logWith(l.Logger.Error(), message, tags...)
 }
 
-func (l *Logger) W(message string, tags ...any) {
-	l.logWith(l.Warn(), message, tags...)
+func (l *Logger) Warn(message string, tags ...any) {
+	l.logWith(l.Logger.Warn(), message, tags...)
 }
 
-func (l *Logger) L(message string, tags ...any) {
-	l.logWith(l.Log(), message, tags...)
+func (l *Logger) Log(message string, tags ...any) {
+	l.logWith(l.Logger.Log(), message, tags...)
 }
 
-func (l *Logger) I(message string, tags ...any) {
-	l.logWith(l.Info(), message, tags...)
+func (l *Logger) Info(message string, tags ...any) {
+	l.logWith(l.Logger.Info(), message, tags...)
 }

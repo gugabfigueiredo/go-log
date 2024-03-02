@@ -1,4 +1,4 @@
-package main
+package log
 
 // convenience code
 // mostly taken from https://gist.github.com/panta/2530672ca641d953ae452ecb5ef79d7d
@@ -14,16 +14,16 @@ import (
 
 // Config - Configuration for logging
 type Config struct {
-	Context string `default:""`
+	Context string `default:"my-app"`
 	// Enable console logging
 	ConsoleLoggingEnabled bool `default:"true"`
 	// EncodeLogsAsJson makes the log framework log JSON
 	EncodeLogsAsJson bool `default:"true"`
 	// FileLoggingEnabled makes the framework log to a file
 	// the fields below can be skipped if this value is false!
-	FileLoggingEnabled bool `default:"true"`
+	FileLoggingEnabled bool `default:"false"`
 	// Directory to log to when filelogging is enabled
-	Directory string `default:"/var/log/my-app"`
+	Directory string `default:"/var/log"`
 	// Filename is the name of the logfile which will be placed inside the directory
 	Filename string `default:"my-app"`
 	// MaxSize the max size in MB of the logfile before it's rolled
@@ -46,7 +46,7 @@ func New(config *Config) *Logger {
 	var writers []io.Writer
 
 	if config.ConsoleLoggingEnabled {
-		writers = append(writers, zerolog.ConsoleWriter{Out: os.Stderr})
+		writers = append(writers, os.Stderr)
 	}
 	if config.FileLoggingEnabled {
 		writers = append(writers, newRollingFile(config))
@@ -56,16 +56,20 @@ func New(config *Config) *Logger {
 	// zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	logger := zerolog.New(mw).With().Timestamp().Logger()
 
-	logger.Info().
+	msg := logger.Info().
 		Str("context", config.Context).
 		Bool("fileLogging", config.FileLoggingEnabled).
-		Bool("jsonLogOutput", config.EncodeLogsAsJson).
-		Str("logDirectory", config.Directory).
-		Str("fileName", config.Filename).
-		Int("maxSizeMB", config.MaxSize).
-		Int("maxBackups", config.MaxBackups).
-		Int("maxAgeInDays", config.MaxAge).
-		Msg("logging configured")
+		Bool("jsonLogging", config.EncodeLogsAsJson)
+
+	if config.FileLoggingEnabled {
+		msg = msg.Str("logDirectory", config.Directory).
+			Str("fileName", config.Filename).
+			Int("maxSizeMB", config.MaxSize).
+			Int("maxBackups", config.MaxBackups).
+			Int("maxAgeInDays", config.MaxAge)
+	}
+
+	msg.Msg("logging configured")
 
 	return &Logger{
 		Logger:  &logger,
